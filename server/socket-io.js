@@ -7,32 +7,43 @@ export function socketSetUp(server) {
     }, //in case server and client run on different urls
   });
 
-  const messages = [];
-  const names = new Map();
+  const messages = {};
 
   io.use(function (socket, next) {
     // first handshake
-    const name = socket.request._query["name"];
-    names.set(socket.id, name);
     next();
   });
 
   io.on("connection", (socket) => {
-    console.log("client connected: ", socket.id);
-    socket.emit("messages", messages);
+    const name = socket.request._query["name"];
+    const room = socket.request._query["room"];
+    console.log(`client connected: ${socket.id}, room: ${room}`);
 
-    socket.on("new-message", (msg) => addMessage(socket.id, msg));
+    socket.join(room);
+
+    if (!messages[room]) {
+      messages[room] = [];
+    }
+
+    socket.emit("messages", messages[room]);
+
+    socket.on("send-message", (msg) => addMessage(room, socket.id, name, msg));
 
     socket.on("disconnect", (reason) => {
-      console.log("client disconnected: ", socket.id);
+      console.log(`client disconnected: ${socket.id}, room: ${room}`);
+      if (!io.sockets.adapter.rooms.get(room)) {
+        console.log(`room ${room} is empty and messages are being cleared`);
+        messages[room] = [];
+      }
     });
   });
 
-  function addMessage(clientId, msg) {
-    messages.push({
-      client: { id: clientId, name: names.get(clientId) },
+  function addMessage(room, clientId, name, msg) {
+    const message = {
+      client: { id: clientId, name: name },
       message: msg,
-    });
-    io.emit("messages", messages);
+    };
+    messages[room].push(message);
+    io.to(room).emit("new-message", message);
   }
 }

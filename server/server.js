@@ -16,6 +16,10 @@ app.use(express.static(path.join(__dirname, "../client/build")));
 
 socketSetUp(server);
 
+app.get("*", (req, res) => {
+  res.sendFile(path.resolve(__dirname, "../client/build", "index.html"));
+});
+
 server.listen(PORT, (err) => {
   if (err) console.log(err);
   console.log("Server running on Port ", PORT);
